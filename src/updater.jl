@@ -16,10 +16,10 @@ function mean_params(states::Vector{CovidState{D}}) where D
     gamma_params = zeros(length(s0.Infdistributions), 2)
     for s in states
         p = s.params
-        test_probs .+= s.pos_test_probs
-        symptom_params .+= params(s.symptom_dist)
-        asymptomatic_prob += s.asymptomatic_prob
-        for (i,d) in enumerate(s.Infdistributions)
+        test_probs .+= p.pos_test_probs
+        symptom_params .+= params(p.symptom_dist)
+        asymptomatic_prob += p.asymptomatic_prob
+        for (i,d) in enumerate(p.Infdistributions)
             gamma_params[i,:] .+= params(d)
         end
     end
@@ -31,8 +31,8 @@ function mean_params(states::Vector{CovidState{D}}) where D
     gamma_params ./= N
 
     for i in eachindex(Infdistributions)
-        p = gamma_params[i,:]
-        Infdistributions[i] = Gamma(p...)
+        k, θ = @view gamma_params[i,:]
+        Infdistributions[i] = Gamma(k,θ)
     end
 
     return InfParams(test_probs, symptom_dist, asymptomatic_prob, Infdistributions)

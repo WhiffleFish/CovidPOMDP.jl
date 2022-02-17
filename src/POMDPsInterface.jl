@@ -26,7 +26,7 @@ POMDPs.actions(pomdp::CovidPOMDP) = pomdp.actions
 
 POMDPs.discount(pomdp::CovidPOMDP) = pomdp.discount
 
-function Simulate(T::Int, state::CovidState, b::ParticleCollection{CovidState}, pomdp::CovidPOMDP, planner::Policy)
+function simulate(T::Int, state::CovidState, b::ParticleCollection{CovidState}, pomdp::CovidPOMDP, planner::Policy)
     susHist = zeros(Int,T)
     infHist = zeros(Int,T)
     recHist = zeros(Int,T)

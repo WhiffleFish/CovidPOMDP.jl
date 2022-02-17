@@ -31,25 +31,27 @@ end
 """
 # Arguments
 - `state::CovidState` - Current Sim State
-- `params::CovidPOMDP` - Simulation parameters
+- `pomdp::CovidPOMDP` - Simulation parameters
 """
 function incident_infections(params::CovidPOMDP, S::Int, I::Vector{Int}, R::Int)
     infSum = 0
     for (i, inf) in enumerate(I)
-        infSum += rand(RVsum(params.Infdistributions[i], inf))
+        d = params.Infdistributions[i]
+        k,θ = Distributions.params(d)
+        d′ = Gamma(k*S/params.N, θ) # conversion from R₀ to Rₜ
+        infSum += rand(RVsum(d′, inf))
     end
-    susceptible_prop = S/(params.N - R)
 
-    return floor(Int, susceptible_prop*infSum)
+    return min(S, floor(Int, infSum)) # Can't infect more people than are susceptible
 end
 
 
 """
 # Arguments
 - `I::Array{Int,1}` - Current infectious population vector (divided by infection age)
-- `params::CovidPOMDP` - Simulation parameters
+- `pomdp::CovidPOMDP` - Simulation parameters
 """
-function SymptomaticIsolation(I::Vector{Int}, params::CovidPOMDP)::Vector{Int64}
+function symptomatic_isolation(params::InfParams, I::Vector{Int})::Vector{Int64}
     isolating = zero(I)
     for (i, inf) in enumerate(I)
         symptomatic_prob = cdf(params.symptom_dist,i) - cdf(params.symptom_dist,i-1)
@@ -63,12 +65,12 @@ end
 """
 # Arguments
 - `state::CovidState` - Current Sim State
-- `params::CovidPOMDP` - Simulation parameters
+- `pomdp::CovidPOMDP` - Simulation parameters
 - `action::CovidAction` - Current Sim Action
 # Returns
 - `pos_tests::Vector{Int}` - Vector of positive tests stratified by infection age
 """
-function PositiveTests(I::Vector{Int}, tests::Matrix{Int}, params::CovidPOMDP, a::CovidAction)
+function positive_tests(params::InfParams, I::Vector{Int}, tests::Matrix{Int}, a::CovidAction)
     pos_tests = zeros(Int, length(params.pos_test_probs))
 
     for (i, inf) in enumerate(I)
@@ -80,23 +82,13 @@ function PositiveTests(I::Vector{Int}, tests::Matrix{Int}, params::CovidPOMDP, a
 end
 
 
-"""
-Given current state and simulation parameters, return state for which Infectious population is decreased by surveillance testing and symptomatic isolation.
-Isolation due to receiving a positive test and isolation due to developing symptoms are not disjoint, therefore both must be calculated together.
-Some waiting for a test to return may develop symptoms and isolate, therefore we cannot simply count these two events as two deductions from the
-infectious population.
-# Arguments
-- `state::CovidState` - Current Sim State
-- `params::CovidPOMDP` - Simulation parameters
-- `action::CovidAction` - Current Sim Action
-- `ret_tests::Bool=false` (opt) - return both new state and positive tests
-"""
+
 # Only record number that have taken the test, the number that return postive is
 # Binomial dist, such that s' is stochastic on s.
-function UpdateIsolations(params::CovidPOMDP, I, R, tests, a::CovidAction)
+function update_isolations(params::InfParams, I, R, tests, a::CovidAction)
 
-    sympt = SymptomaticIsolation(I, params) # Number of people isolating due to symptoms
-    pos_tests = PositiveTests(I, tests, params, a)
+    sympt = symptomatic_isolation(params, I) # Number of people isolating due to symptoms
+    pos_tests = positive_tests(params, I, tests, a)
 
     sympt_prop = sympt ./ I # Symptomatic Isolation Proportion
     replace!(sympt_prop, NaN=>0.0)
@@ -125,17 +117,12 @@ function UpdateIsolations(params::CovidPOMDP, I, R, tests, a::CovidAction)
     return I, R, tests, pos_tests
 end
 
-"""
-# Arguments
-- `state::CovidState` - Current Sim State
-- `params::CovidPOMDP` - Simulation parameters
-- `action::Action` - Current Sim Action
-"""
-function SimStep(state::CovidState, params::CovidPOMDP, a::CovidAction)
-    (;S, I, R, Tests, prev_action) = state
+
+function sim_step(pomdp::CovidPOMDP, state::CovidState, a::CovidAction)
+    (;S, I, R, Tests, params, prev_action) = state
 
     # Update symptomatic and testing-based isolations
-    I, R, Tests, pos_tests = UpdateIsolations(params, I, R, Tests, a)
+    I, R, Tests, pos_tests = update_isolations(pomdp, I, R, Tests, a)
 
     # Incident Infections
     R += I[end]
@@ -143,7 +130,7 @@ function SimStep(state::CovidState, params::CovidPOMDP, a::CovidAction)
     new_infections = incident_infections(params, S, I, R)
     I[1] = new_infections
     S -= new_infections
-    sp = CovidState(S, I, R, Tests, a)
+    sp = CovidState(S, I, R, Tests, params, a)
     return sp, new_infections, pos_tests
 end
 
@@ -155,7 +142,7 @@ function reward(m::CovidPOMDP, s::CovidState, a::CovidAction, sp::CovidState)
 end
 
 function continuous_gen(m::CovidPOMDP, s::CovidState, a::CovidAction, rng::AbstractRNG=Random.GLOBAL_RNG)
-    sp, new_inf, o = SimStep(s, m, a)
+    sp, new_inf, o = sim_step(m, s, a)
     r = reward(m, s, a, sp)
     o = sum(o)
 
@@ -166,10 +153,10 @@ end
 # Arguments
 - `T::Int` - Simulation duration (days)
 - `state::CovidState` - Current Sim State
-- `params::CovidPOMDP` - Simulation parameters
+- `pomdp::CovidPOMDP` - Simulation parameters
 - `action::CovidAction` - Current Sim Action
 """
-function Simulate(T::Int, state::CovidState, params::CovidPOMDP, action::CovidAction)::SimHist
+function simulate(T::Int, state::CovidState, pomdp::CovidPOMDP, action::CovidAction)::SimHist
     susHist = zeros(Int,T)
     infHist = zeros(Int,T)
     recHist = zeros(Int,T)
@@ -182,73 +169,34 @@ function Simulate(T::Int, state::CovidState, params::CovidPOMDP, action::CovidAc
         infHist[day] = sum(state.I)
         recHist[day] = state.R
 
-        sp, new_infections, pos_tests = SimStep(state, params, action)
-        r = reward(params, state, action,sp)
+        sp, new_infections, pos_tests = sim_step(pomdp, state, action)
+        r = reward(pomdp, state, action,sp)
 
         testHist[day] = sum(pos_tests)
         rewardHist[day] = r
         state = sp
     end
-    return SimHist(susHist, infHist, recHist, params.N, T, testHist, actionHist, rewardHist, ParticleCollection{CovidState}[])
+
+    return SimHist(
+        susHist,
+        infHist,
+        recHist,
+        pomdp.N,
+        T,
+        testHist,
+        actionHist,
+        rewardHist,
+        ParticleCollection{CovidState}[]
+    )
 end
 
 
-"""
-Run multiple simulations with random initial states but predefined actions
-# Arguments
-- `T::Int64` - Simulation Time (days)
-- `trajectories::Int64` - Total number of simulations
-- `params::CovidPOMDP` - Simulation Parameters
-- `action::CovidAction` - Testing Action
-- `N::Int=1_000_000` - (opt) Population Size
-# Return
-- `Vector{SimHist}`
-"""
-function SimulateEnsemble(T::Int64, trajectories::Int64, params::CovidPOMDP, action::CovidAction)::Vector{SimHist}
-    [Simulate(T, CovidState(params), params, action) for _ in 1:trajectories]
+function SimulateEnsemble(T::Int64, trajectories::Int64, pomdp::CovidPOMDP, action::CovidAction)
+    [Simulate(T, CovidState(pomdp), pomdp, action) for _ in 1:trajectories]
 end
 
-"""
-Run multiple simulations with varying predefined actions and random initial states
-# Arguments
-- `T::Int64` - Simulation Time (days)
-- `trajectories::Int64` - Total number of simulations
-- `params::CovidPOMDP` - Simulation Parameters
-- `actions::Vector{CovidAction}` -
-- `N::Int=1_000_000` - (opt) Population Size
-# Return
-- `Vector{SimHist}`
-"""
-function SimulateEnsemble(T::Int64, trajectories::Int64, params::CovidPOMDP, actions::Vector{CovidAction})::Vector{SimHist}
-    [Simulate(T, CovidState(params), params, actions[i]) for i in 1:trajectories]
-end
-
-"""
-Provided some state initial condition, simulate resulting epidemic and return vector of all intermediary states
-- `T::Int`
-- `state::CovidState`
-- `params::CovidPOMDP`
-- `action::CovidAction` (opt)
-"""
-function GenSimStates(T::Int, state::CovidState, params::CovidPOMDP; action::CovidAction=CovidAction(0.0))::Vector{CovidState}
-    [first(SimStep(s, params, action)) for day in 1:T]
-end
-
-"""
-Provided some state initial conditions, simulate resulting epidemic and return vector of all intermediary states
-- `T::Int`
-- `states::Vector{CovidState}`
-- `params::CovidPOMDP`
-- `action::CovidAction` (opt)
-"""
-function GenSimStates(T::Int, states::Vector{CovidState}, params::CovidPOMDP; action::CovidAction=CovidAction(0.0))::Vector{CovidState}
-    svec = Vector{CovidState}(undef, 0)
-    for state in states
-        for day in 1:T
-            push!(svec, first(SimStep(state, params, action)))
-        end
-    end
-    return svec
+function SimulateEnsemble(T::Int64, trajectories::Int64, pomdp::CovidPOMDP, actions::Vector{CovidAction})
+    [Simulate(T, CovidState(pomdp), pomdp, actions[i]) for i in 1:trajectories]
 end
 
 function FullArr(state::CovidState, param::CovidPOMDP)::Vector{Float64}
@@ -263,18 +211,11 @@ function FullArrToSIR(arr::Array{Float64,2})::Matrix{Float64}
     )'
 end
 
-"""
-Provided some state initial conditions, simulate resulting epidemic and return vector of all intermediary states
-- `T::Int`
-- `state::CovidState`
-- `params::CovidPOMDP`
-- `action::CovidAction` (opt)
-"""
-function SimulateFull(T::Int, state::CovidState, params::CovidPOMDP; action::CovidAction=CovidAction(0.0))::Array{Float64,2}
+function SimulateFull(T::Int, state::CovidState, pomdp::CovidPOMDP; action::CovidAction=CovidAction(0.0))::Matrix{Float64}
     StateArr = Array{Float64,2}(undef,16,T)
     StateArr[:,1] = FullArr(s)
     for day in 2:T
-        StateArr[:,day] = FullArr(first(SimStep(s, params, action)))
+        StateArr[:,day] = FullArr(first(sim_step(pomdp, s, action)))
     end
     return StateArr
 end
