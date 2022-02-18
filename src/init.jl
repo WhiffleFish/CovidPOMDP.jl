@@ -11,24 +11,13 @@ function FitInfectionDistributions(df::DataFrame, horizon::Int=14, sample_size::
     for day in 1:horizon
         try
             shape, scale = Distributions.params(fit(Gamma, df[!,day]))
-            distributions[day] = Gamma(shape/sample_size, scale*sample_size)
+            distributions[day] = Gamma(shape/sample_size, 5*scale*sample_size)
         catch e
             if e isa DomainError
-                try
-                    weights = min.(log.(1 ./ df[!,day]),10)
-                    β = Distributions.params(fit(Exponential, df[!,day], weights))[1]
-                    distributions[day] = Gamma(1/sample_size, β*sample_size)
-                catch e # use dirac 0
-                    if e isa DomainError
-                        distributions[day] = Gamma(1e-100,1e-100)
-                    else
-                        throw(e)
-                    end
-                end
+                distributions[day] = Gamma(1e-100,1e-100)
             else
                 throw(e)
             end
-
         end
     end
     return distributions

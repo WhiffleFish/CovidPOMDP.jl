@@ -49,14 +49,12 @@ struct CovidState
     prev_action::CovidAction
 end
 
-"""
-Covid POMDP
-"""
+
 Base.@kwdef struct CovidPOMDP <: POMDP{CovidState, CovidAction, Int}
-    "Delay (in days) between test being administered and result of test being received (≥ 0)"
+    "Delay (in days) between test being administered and result of test being received `(≥ 0)`"
     test_delay::Int = 1
 
-    "Total population count (> 0)"
+    "Total population count `(> 0)`"
     N::Int = 10^6
 
     "POMDP discount factor `(γ ∈ [0,1])`"

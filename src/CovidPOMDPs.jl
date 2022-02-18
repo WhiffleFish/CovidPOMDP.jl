@@ -8,7 +8,7 @@ using Statistics
 using ParticleFilters
 using CSV: File
 using DataFrames: DataFrame
-using Plots
+using CairoMakie
 
 include("init.jl")
 
