@@ -1,3 +1,0 @@
-module CovidPOMDP
-
-end

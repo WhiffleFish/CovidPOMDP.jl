@@ -10,12 +10,27 @@ end
 
 Base.zero(CovidAction) = CovidAction(0.0)
 
+
+struct CovidActionSpace end
+
+Base.rand(rng::AbstractRNG, ::CovidActionSpace) = CovidAction(rand(rng))
+Base.rand(A::CovidActionSpace) = rand(Random.GLOBAL_RNG, A)
+
 struct InfParams{D<:Distribution}
     pos_test_probs::Vector{Float64}
     symptom_dist::D
     asymptomatic_prob::Float64
-    Infdistributions::Vector{Gamma{Float64}}
+    symptomatic_isolation_prob::Float64
+    infectiousness::Vector{Gamma{Float64}}
 end
+
+const DEFAULT_PARAMS = InfParams(
+    POS_TEST_PROBS,
+    SYMPTOM_DIST,
+    ASYMPTOMATIC_PROB,
+    SYMPTOMATIC_ISOLATION_PROB,
+    INF_DIST
+)
 
 """
 # Arguments
@@ -34,21 +49,30 @@ struct CovidState{D}
     prev_action::CovidAction
 end
 
-
 """
-# Arguments
-- `test_delay::Int = 0` - Delay between test being administered and received by subject (days)
-- `N::Int = 1_000_000` - Total Population
-- `discount::Float64 = 0.95` - POMDP discount factor
+Covid POMDP
 """
 Base.@kwdef struct CovidPOMDP <: POMDP{CovidState, CovidAction, Int}
-    test_delay::Int
-    N::Int
-    discount::Float64
-    inf_loss::Float64
-    test_loss::Float64
-    testrate_loss::Float64
-    test_period::Int
+    "Delay (in days) between test being administered and result of test being received (≥ 0)"
+    test_delay::Int = 1
+
+    "Total population count (> 0)"
+    N::Int = 10^6
+
+    "POMDP discount factor `(γ ∈ [0,1])`"
+    discount::Float64 = 0.95
+
+    "Weight with which to penalize new infections `(≥ 0.0)`"
+    inf_loss::Float64 = 1.0
+
+    "Weight with which to penalize testing rate `(≥ 0.0)`"
+    test_loss::Float64 = 1.0
+
+    "Weight with which to penalize changes in testing rate `(≥ 0.0)`"
+    testrate_loss::Float64 = 1.0
+
+    "Number of days for which a testing policy must be held `(≥ 1)`"
+    test_period::Int = 1
 end
 
 """
@@ -101,14 +125,8 @@ function init_SIRT(pomdp::CovidPOMDP, rng=Random.GLOBAL_RNG)
     return S, I, R, tests
 end
 
-"""
-Random Initial State using Bayesian Bootstrap / Simplex sampling
-# Arguments
-- `params::CovidPOMDP` - Simulation parameters
-"""
-function CovidState(params::CovidPOMDP, rng=Random.GLOBAL_RNG)::CovidState
-    S, I, R, tests = init_SIRT(pomdp, rng)
-    return CovidState(S, I, R, tests, CovidAction(0.0))
+function CovidState(pomdp::CovidPOMDP, params::InfParams=DEFAULT_PARAMS)
+    return CovidState(init_SIRT(pomdp)..., params, CovidAction(0.0))
 end
 
 function initParams(pomdp::CovidPOMDP, asymptomatic_prob=0.10)
@@ -124,6 +142,7 @@ function initParams(pomdp::CovidPOMDP, asymptomatic_prob=0.10)
         POS_TEST_PROBS,
         SYMPTOM_DIST,
         asymptomatic_prob,
+        SYMPTOMATIC_ISOLATION_PROB,
         infection_distributions
         )
 end

@@ -1,13 +1,3 @@
-"""
-Simulation History
-# Arguments
-- `sus::Vector{Int}` - Susceptible Population History
-- `inf::Vector{Int}` - Infected Population History
-- `rec::Vector{Int}` - Recovered Population History
-- `N::Int` - Total Population
-- `T::Int` - Simulation Time
-- `incident::Array{Int, 1}` = nothing - Incident Infections need not always be recorded
-"""
 Base.@kwdef struct SimHist
     sus::Vector{Int} # Susceptible Population History
     inf::Vector{Int} # Infected Population History
@@ -33,12 +23,13 @@ end
 - `state::CovidState` - Current Sim State
 - `pomdp::CovidPOMDP` - Simulation parameters
 """
-function incident_infections(params::CovidPOMDP, S::Int, I::Vector{Int}, R::Int)
+function incident_infections(params::InfParams, S::Int, I::Vector{Int}, R::Int)
     infSum = 0
+    N = S + sum(I) + R
     for (i, inf) in enumerate(I)
-        d = params.Infdistributions[i]
+        d = params.infectiousness[i]
         k,θ = Distributions.params(d)
-        d′ = Gamma(k*S/params.N, θ) # conversion from R₀ to Rₜ
+        d′ = Gamma(k*S/N, θ) # conversion from R₀ to Rₜ
         infSum += rand(RVsum(d′, inf))
     end
 
@@ -82,7 +73,6 @@ function positive_tests(params::InfParams, I::Vector{Int}, tests::Matrix{Int}, a
 end
 
 
-
 # Only record number that have taken the test, the number that return postive is
 # Binomial dist, such that s' is stochastic on s.
 function update_isolations(params::InfParams, I, R, tests, a::CovidAction)
@@ -122,7 +112,7 @@ function sim_step(pomdp::CovidPOMDP, state::CovidState, a::CovidAction)
     (;S, I, R, Tests, params, prev_action) = state
 
     # Update symptomatic and testing-based isolations
-    I, R, Tests, pos_tests = update_isolations(pomdp, I, R, Tests, a)
+    I, R, Tests, pos_tests = update_isolations(params, I, R, Tests, a)
 
     # Incident Infections
     R += I[end]
@@ -156,7 +146,13 @@ end
 - `pomdp::CovidPOMDP` - Simulation parameters
 - `action::CovidAction` - Current Sim Action
 """
-function simulate(T::Int, state::CovidState, pomdp::CovidPOMDP, action::CovidAction)::SimHist
+function POMDPs.simulate(
+    pomdp::CovidPOMDP,
+    state::CovidState = CovidState(pomdp),
+    action::CovidAction = CovidAction(0.0);
+    T::Int = 50
+    )
+
     susHist = zeros(Int,T)
     infHist = zeros(Int,T)
     recHist = zeros(Int,T)

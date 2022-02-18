@@ -55,7 +55,7 @@ Return distribution resulting from sum of i.i.d RV's characterized by Normal dis
 - `dist::Normal` - Distribution characterizing random variable
 - `N::Int` - Number of i.i.d RV's summed
 """
-function RVsum(dist::Normal, N::Int)::Normal
+function RVsum(dist::Normal, N::Int)
     μ, σ = Distributions.params(dist)
     return Normal(μ*N,σ*N)
 end
@@ -68,11 +68,11 @@ Return distribution resulting from sum of i.i.d RV's characterized by Gamma dist
 - `dist::Gamma` - Distribution characterizing random variable
 - `N::Int` - Number of i.i.d RV's summed
 """
-function RVsum(dist::Gamma, N::Int)::UnivariateDistribution
+function RVsum(dist::Gamma, N::Int)
     k, θ = Distributions.params(dist)
     if k*N > 0
         return Gamma(k*N, θ)
     else
-        return Normal(0,0)
+        return Gamma(1e-100, 1e-100)
     end
 end

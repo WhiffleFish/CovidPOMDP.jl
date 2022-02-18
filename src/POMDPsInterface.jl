@@ -22,11 +22,11 @@ function POMDPs.observation(pomdp::CovidPOMDP, s::CovidState, a::CovidAction, sp
     return Normal(tot_mean, sqrt(tot_variance))
 end
 
-POMDPs.actions(pomdp::CovidPOMDP) = pomdp.actions
+POMDPs.actions(pomdp::CovidPOMDP) = CovidActionSpace()
 
 POMDPs.discount(pomdp::CovidPOMDP) = pomdp.discount
 
-function simulate(T::Int, state::CovidState, b::ParticleCollection{CovidState}, pomdp::CovidPOMDP, planner::Policy)
+function POMDPs.simulate(T::Int, state::CovidState, b::ParticleCollection{CovidState}, pomdp::CovidPOMDP, planner::Policy)
     susHist = zeros(Int,T)
     infHist = zeros(Int,T)
     recHist = zeros(Int,T)
@@ -38,7 +38,7 @@ function simulate(T::Int, state::CovidState, b::ParticleCollection{CovidState}, 
     single_step_pomdp = unity_test_period(pomdp)
     upd = BootstrapFilter(single_step_pomdp, n_particles(b))
 
-    @showprogress for day in 1:T
+    for day in 1:T
 
         if (day-1)%pomdp.test_period == 0
             action = POMDPs.action(planner, b)
