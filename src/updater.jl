@@ -8,12 +8,12 @@ end
 NOTE: symptomatic_isolation_prob is not averaged
 - isolation probability assumed to be known
 =#
-function mean_params(states::Vector{CovidState{D}}) where D
+function mean_params(states::Vector{CovidState})
     N = length(states)
     s0 = first(states).params
 
     test_probs = zero(s0.pos_test_probs)
-    symptom_params = zeros(length(params(s0.symptom_dist)))
+    symptom_probs = zero(s0.symptom_probs)
     infectiousness = Vector{Gamma{Float64}}(undef, length(s0.infectiousness))
     asymptomatic_prob = 0.0
 
@@ -21,7 +21,7 @@ function mean_params(states::Vector{CovidState{D}}) where D
     for s in states
         p = s.params
         test_probs .+= p.pos_test_probs
-        symptom_params .+= params(p.symptom_dist)
+        symptom_probs .+= p.symptom_probs
         asymptomatic_prob += p.asymptomatic_prob
         for (i,d) in enumerate(p.infectiousness)
             gamma_params[i,:] .+= params(d)
@@ -29,8 +29,7 @@ function mean_params(states::Vector{CovidState{D}}) where D
     end
 
     test_probs ./= N
-    symptom_params ./= N
-    symptom_dist = D(symptom_params...)
+    symptom_probs ./= N
     asymptomatic_prob /= N
     gamma_params ./= N
     symptomatic_isolation_prob = first(states).params.symptomatic_isolation_prob
@@ -42,7 +41,7 @@ function mean_params(states::Vector{CovidState{D}}) where D
 
     return InfParams(
         test_probs,
-        symptom_dist,
+        symptom_probs,
         asymptomatic_prob,
         symptomatic_isolation_prob,
         infectiousness
@@ -53,7 +52,7 @@ function initialbelief(pomdp::CovidPOMDP, np::Int)
     ParticleCollection([rand(initialstate(pomdp)) for _ in 1:np])
 end
 
-function mean(states::Vector{CovidState}, N::Int)::CovidState
+function Statistics.mean(states::Vector{CovidState}, N::Int)
     n_states = length(states)
     sumS = 0
     sumI = zeros(Int,length(first(states).I))

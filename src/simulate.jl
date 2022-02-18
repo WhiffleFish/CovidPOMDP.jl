@@ -24,6 +24,7 @@ end
 - `pomdp::CovidPOMDP` - Simulation parameters
 """
 function incident_infections(params::InfParams, S::Int, I::Vector{Int}, R::Int)
+    iszero(S) && return 0
     infSum = 0
     N = S + sum(I) + R
     for (i, inf) in enumerate(I)
@@ -42,10 +43,10 @@ end
 - `I::Array{Int,1}` - Current infectious population vector (divided by infection age)
 - `pomdp::CovidPOMDP` - Simulation parameters
 """
-function symptomatic_isolation(params::InfParams, I::Vector{Int})::Vector{Int64}
+function symptomatic_isolation(params::InfParams, I::Vector{Int})
     isolating = zero(I)
     for (i, inf) in enumerate(I)
-        symptomatic_prob = cdf(params.symptom_dist,i) - cdf(params.symptom_dist,i-1)
+        symptomatic_prob = params.symptom_probs[i]
         isolation_prob = symptomatic_prob*(1-params.asymptomatic_prob)*params.symptomatic_isolation_prob
         isolating[i] = rand(Binomial(inf,isolation_prob))
     end
@@ -84,7 +85,7 @@ function update_isolations(params::InfParams, I, R, tests, a::CovidAction)
     replace!(sympt_prop, NaN=>0.0)
 
     R += sum(sympt)
-    I -= sympt
+    I .-= sympt
 
     tests[end,:] .= pos_tests
 

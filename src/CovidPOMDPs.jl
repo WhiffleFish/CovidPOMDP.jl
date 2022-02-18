@@ -4,6 +4,7 @@ using Random
 using POMDPs
 using POMDPModelTools
 using Distributions
+using Statistics
 using ParticleFilters
 using CSV: File
 using DataFrames: DataFrame

@@ -16,9 +16,9 @@ struct CovidActionSpace end
 Base.rand(rng::AbstractRNG, ::CovidActionSpace) = CovidAction(rand(rng))
 Base.rand(A::CovidActionSpace) = rand(Random.GLOBAL_RNG, A)
 
-struct InfParams{D<:Distribution}
+struct InfParams
     pos_test_probs::Vector{Float64}
-    symptom_dist::D
+    symptom_probs::Vector{Float64}
     asymptomatic_prob::Float64
     symptomatic_isolation_prob::Float64
     infectiousness::Vector{Gamma{Float64}}
@@ -26,7 +26,7 @@ end
 
 const DEFAULT_PARAMS = InfParams(
     POS_TEST_PROBS,
-    SYMPTOM_DIST,
+    SYMPTOM_PROBS,
     ASYMPTOMATIC_PROB,
     SYMPTOMATIC_ISOLATION_PROB,
     INF_DIST
@@ -40,12 +40,12 @@ const DEFAULT_PARAMS = InfParams(
 - `Tests::Matrix{Int}` - Array for which people belonging to array element ``T_{i,j}`` are ``i-1`` days away
     from receiving positive test and have infection age ``j``
 """
-struct CovidState{D}
+struct CovidState
     S::Int # Current Susceptible Population
     I::Vector{Int} # Current Infected Population
     R::Int # Current Recovered Population
     Tests::Matrix{Int} # Rows: Days from receiving test result; Columns: Infection Age
-    params::InfParams{D}
+    params::InfParams
     prev_action::CovidAction
 end
 
@@ -140,7 +140,7 @@ function initParams(pomdp::CovidPOMDP, asymptomatic_prob=0.10)
 
     return InfParams(
         POS_TEST_PROBS,
-        SYMPTOM_DIST,
+        cdf_step(SYMPTOM_DIST, INFECTION_HORIZON),
         asymptomatic_prob,
         SYMPTOMATIC_ISOLATION_PROB,
         infection_distributions
@@ -151,4 +151,8 @@ function rand_initialstate(pomdp::CovidPOMDP)
     S, I, R, T = init_SIRT(pomdp)
     params = initParams(pomdp)
     return CovidState(S, I, R, T, params, CovidAction(0.0))
+end
+
+function cdf_step(d::Distribution, N::Int)
+    return Float64[cdf(d, i) - cdf(d, i-1) for i in 1:N]
 end
