@@ -9,6 +9,7 @@ using ParticleFilters
 using CSV: File
 using DataFrames: DataFrame
 using CairoMakie
+using BasicPOMCP
 
 include("init.jl")
 
@@ -21,6 +22,8 @@ include("simulate.jl")
 export SimHist
 
 include("POMDPsInterface.jl")
+
+include("proportional_control.jl")
 
 include("updater.jl")
 
