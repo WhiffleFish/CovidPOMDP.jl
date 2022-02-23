@@ -1,5 +1,6 @@
 using CovidPOMDPs
 using POMDPs
+using POMCPOW 
 using Test
 
 #=
@@ -23,3 +24,5 @@ end
 =#
 
 include("simulation.jl")
+
+include("solution.jl")

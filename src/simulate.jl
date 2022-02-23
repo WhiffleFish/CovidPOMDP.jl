@@ -111,6 +111,8 @@ end
 
 function sim_step(pomdp::CovidPOMDP, state::CovidState, a::CovidAction)
     (;S, I, R, Tests, params, prev_action) = state
+    I = copy(I)
+    Tests = copy(Tests)
 
     # Update symptomatic and testing-based isolations
     I, R, Tests, pos_tests = update_isolations(params, I, R, Tests, a)
@@ -122,6 +124,7 @@ function sim_step(pomdp::CovidPOMDP, state::CovidState, a::CovidAction)
     I[1] = new_infections
     S -= new_infections
     sp = CovidState(S, I, R, Tests, params, a)
+
     return sp, new_infections, pos_tests
 end
 
@@ -229,4 +232,21 @@ function Base.Array(histvec::Vector{SimHist})::Array{Int64,3}
         arr[:,:,i] .= Array(histvec[i])
     end
     return arr
+end
+
+function shift_inf!(I::Vector)
+    @inbounds for i in length(I):2
+        I[i] = I[i-1]
+    end
+end
+
+function shift_test!(T::Matrix)
+    s1,s2 = size(T)
+    for i in 1:(s1-1)
+        @views copyto!(T[i,:],T[i+1,:])
+    end
+    for j in s2:2
+        @views copyto!(T[:,i], T[:,i+1])
+    end
+    return T
 end

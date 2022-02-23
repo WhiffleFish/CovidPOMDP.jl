@@ -17,7 +17,7 @@ function POMDPs.observation(pomdp::CovidPOMDP, s::CovidState, a::CovidAction, sp
         num_tested = floor(Int,(inf-num_already_tested)*a.testing_prop)
         dist = Binomial(num_tested,p.pos_test_probs[i])
         tot_mean += Statistics.mean(dist)
-        tot_variance += Statistics.std(dist)^2
+        tot_variance += Statistics.var(dist)
     end
     return Normal(tot_mean, sqrt(tot_variance))
 end
