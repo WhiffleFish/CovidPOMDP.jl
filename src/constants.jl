@@ -2,13 +2,19 @@ const INFECTION_HORIZON = 14
 
 const INFECTION_DATA_PATH = joinpath(@__DIR__, "data", "Sample50.csv")
 
-const INF_DATAFRAME = INFECTION_DATA_PATH |> File |> DataFrame
+const INF_DATAFRAME = begin
+    dlm = readdlm(INFECTION_DATA_PATH, ',')
+    DataFrame(dlm[2:end, :], string.(Int.(dlm[1,:])))
+end
 
 const INF_DIST = FitInfectionDistributions(INF_DATAFRAME, INFECTION_HORIZON, 50)
 
 const VIRAL_LOADS_DATA_PATH = joinpath(@__DIR__, "data", "raw_viral_load.csv")
 
-const VIRAL_LOADS = VIRAL_LOADS_DATA_PATH |> File |> DataFrame
+const VIRAL_LOADS = begin
+    dlm = readdlm(VIRAL_LOADS_DATA_PATH, ',')
+    DataFrame(dlm[2:end, :], string.(Int.(dlm[1,:])))
+end
 
 const LIMIT_OF_DETECTION = 6
 

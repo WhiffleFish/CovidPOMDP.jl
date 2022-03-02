@@ -6,7 +6,7 @@ using POMDPModelTools
 using Distributions
 using Statistics
 using ParticleFilters
-using CSV: File
+using DelimitedFiles
 using DataFrames: DataFrame
 using CairoMakie
 using BasicPOMCP
