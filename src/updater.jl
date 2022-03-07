@@ -4,6 +4,12 @@ function POMDPs.initialstate(pomdp::CovidPOMDP)
     end
 end
 
+function POMDPs.initialstate(pomdp::CovidPOMDP, Idist::Distribution)
+    return ImplicitDistribution() do rng
+        rand_initialstate(pomdp, Idist)
+    end
+end
+
 #=
 NOTE: symptomatic_isolation_prob is not averaged
 - isolation probability assumed to be known
@@ -77,6 +83,6 @@ function Statistics.mean(states::Vector{CovidState}, N::Int)
         )
 end
 
-mean(states::Vector{CovidState}) = mean(states, population(first(states)))
+Statistics.mean(states::Vector{CovidState}) = Statistics.mean(states, population(first(states)))
 
-mean(pc::ParticleCollection{CovidState}, pomdp::CovidPOMDP) = mean(pc.particles, pomdp.N)
+Statistics.mean(pc::ParticleCollection{CovidState}, pomdp::CovidPOMDP) = Statistics.mean(pc.particles, pomdp.N)

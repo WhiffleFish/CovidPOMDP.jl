@@ -22,11 +22,19 @@ function POMDPs.observation(pomdp::CovidPOMDP, s::CovidState, a::CovidAction, sp
     return Normal(tot_mean, sqrt(tot_variance))
 end
 
-POMDPs.actions(pomdp::CovidPOMDP) = CovidActionSpace()
+POMDPs.actions(pomdp::CovidPOMDP) = pomdp.actions
 
 POMDPs.discount(pomdp::CovidPOMDP) = pomdp.discount
 
-function POMDPs.simulate(T::Int, state::CovidState, b::ParticleCollection{CovidState}, pomdp::CovidPOMDP, planner::Policy)
+function POMDPs.simulate(
+    pomdp::CovidPOMDP,
+    b,
+    planner::Policy;
+    s = rand(b),
+    T::Int=50,
+    n_p::Int = 100,
+    progress::Bool=false)
+
     susHist = zeros(Int,T)
     infHist = zeros(Int,T)
     recHist = zeros(Int,T)
@@ -36,27 +44,31 @@ function POMDPs.simulate(T::Int, state::CovidState, b::ParticleCollection{CovidS
     beliefHist = Vector{ParticleCollection{CovidState}}(undef, T)
 
     single_step_pomdp = unity_test_period(pomdp)
-    upd = BootstrapFilter(single_step_pomdp, n_particles(b))
+    upd = BootstrapFilter(single_step_pomdp, n_p)
 
+    prog = Progress(T; enabled=progress)
     for day in 1:T
 
         if (day-1)%pomdp.test_period == 0
-            action = POMDPs.action(planner, b)
+            a = POMDPs.action(planner, b)
         else
-            action = actionHist[day-1]
+            a = actionHist[day-1]
         end
+        (day == 1) && (b = initialize_belief(upd, b))
 
-        susHist[day] = state.S
-        infHist[day] = sum(state.I)
-        recHist[day] = state.R
-        actionHist[day] = action
+        susHist[day] = s.S
+        infHist[day] = sum(s.I)
+        recHist[day] = s.R
+        actionHist[day] = a
         beliefHist[day] = b
 
-        state, o, r = POMDPs.gen(single_step_pomdp, state, action)
-        b = update(upd, b, action, o)
+        s, o, r = POMDPs.gen(single_step_pomdp, s, a)
+        b = update(upd, b, a, o)
 
         rewardHist[day] = r
         testHist[day] = sum(o)
+
+        next!(prog)
     end
     return SimHist(susHist, infHist, recHist, pomdp.N, T, testHist, actionHist, rewardHist, beliefHist)
 end

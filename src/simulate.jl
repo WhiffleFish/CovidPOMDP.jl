@@ -145,10 +145,10 @@ end
 
 """
 # Arguments
-- `T::Int` - Simulation duration (days)
-- `state::CovidState` - Current Sim State
 - `pomdp::CovidPOMDP` - Simulation parameters
+- `state::CovidState` - Current Sim State
 - `action::CovidAction` - Current Sim Action
+- `T::Int` - Simulation duration (days)
 """
 function POMDPs.simulate(
     pomdp::CovidPOMDP,
@@ -234,19 +234,23 @@ function Base.Array(histvec::Vector{SimHist})::Array{Int64,3}
     return arr
 end
 
-function shift_inf!(I::Vector)
-    @inbounds for i in length(I):2
+@inline function shift_inf!(I::Vector)
+    @inbounds for i in length(I):-1:2
         I[i] = I[i-1]
     end
+    I[1] = 0
+    I
 end
 
-function shift_test!(T::Matrix)
+@inline function shift_test!(T::Matrix)
     s1,s2 = size(T)
-    for i in 1:(s1-1)
+    @inbounds for i in 1:(s1-1)
         @views copyto!(T[i,:],T[i+1,:])
     end
-    for j in s2:2
-        @views copyto!(T[:,i], T[:,i+1])
+    @inbounds for j in s2:-1:2
+        @views copyto!(T[:,j], T[:,j-1])
     end
+    T[:,1] .= 0
+    T[end,:] .= 0
     return T
 end

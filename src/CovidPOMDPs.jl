@@ -1,15 +1,17 @@
 module CovidPOMDPs
 
+using Reexport
 using Random
-using POMDPs
-using POMDPModelTools
-using Distributions
-using Statistics
-using ParticleFilters
+using ProgressMeter
+@reexport using POMDPs
+@reexport using POMDPModelTools
+@reexport using Distributions
+@reexport using Statistics
+@reexport using ParticleFilters
 using DelimitedFiles
 using DataFrames: DataFrame
-using CairoMakie
-using BasicPOMCP
+@reexport using CairoMakie
+@reexport using BasicPOMCP
 
 include("init.jl")
 
