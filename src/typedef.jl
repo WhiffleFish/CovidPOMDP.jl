@@ -16,6 +16,15 @@ struct CovidActionSpace end
 Base.rand(rng::AbstractRNG, ::CovidActionSpace) = CovidAction(rand(rng))
 Base.rand(A::CovidActionSpace) = rand(Random.GLOBAL_RNG, A)
 
+function CovidActionSpace(n::Int; zero::Bool=false)
+    start = zero ? 0 : 1
+    return Tuple(CovidAction(i/n) for i in start:n)
+end
+
+function CovidActionSpace(v::AbstractVector{<:Real})
+    return Tuple(CovidAction(v_i) for v_i in v)
+end
+
 struct InfParams
     pos_test_probs::Vector{Float64}
     symptom_probs::Vector{Float64}
@@ -49,8 +58,9 @@ struct CovidState
     prev_action::CovidAction
 end
 
+SIR(s::CovidState) = (s.S, sum(s.I), s.R)
 
-Base.@kwdef struct CovidPOMDP <: POMDP{CovidState, CovidAction, Int}
+Base.@kwdef struct CovidPOMDP{A} <: POMDP{CovidState, CovidAction, Int}
     "Delay (in days) between test being administered and result of test being received `(≥ 0)`"
     test_delay::Int = 1
 
@@ -71,6 +81,9 @@ Base.@kwdef struct CovidPOMDP <: POMDP{CovidState, CovidAction, Int}
 
     "Number of days for which a testing policy must be held `(≥ 1)`"
     test_period::Int = 1
+
+    "CovidPOMDP action space (default is continuous [0,1])"
+    actions::A = CovidActionSpace()
 end
 
 """
@@ -84,7 +97,8 @@ function unity_test_period(pomdp::CovidPOMDP)::CovidPOMDP
         pomdp.inf_loss,
         pomdp.test_loss,
         pomdp.testrate_loss,
-        1
+        1,
+        pomdp.actions
     )
 end
 
@@ -107,7 +121,7 @@ function simplex_sample(N::Int, m::Float64, rng::AbstractRNG=Random.GLOBAL_RNG)
 end
 
 
-function init_SIRT(pomdp::CovidPOMDP, rng=Random.GLOBAL_RNG)
+function init_SIRT(pomdp::CovidPOMDP, rng::AbstractRNG=Random.GLOBAL_RNG)
     N = pomdp.N
     S, inf, R = floor.(Int, simplex_sample(3, Float64(N), rng))
 
@@ -117,6 +131,22 @@ function init_SIRT(pomdp::CovidPOMDP, rng=Random.GLOBAL_RNG)
 
     leftover = N - (S + sum(I) + R)
     R += leftover
+
+    tests = zeros(Int, pomdp.test_delay+1, horizon)
+
+    return S, I, R, tests
+end
+
+function init_SIRT(pomdp::CovidPOMDP, inf::Int, rng::AbstractRNG=Random.GLOBAL_RNG)
+    N = pomdp.N
+    R = 0
+
+    horizon = INFECTION_HORIZON
+
+    I = floor.(Int, simplex_sample(horizon, Float64(inf), rng))
+
+    leftover = N - sum(I)
+    S = leftover
 
     tests = zeros(Int, pomdp.test_delay+1, horizon)
 
@@ -147,6 +177,13 @@ end
 
 function rand_initialstate(pomdp::CovidPOMDP)
     S, I, R, T = init_SIRT(pomdp)
+    params = initParams(pomdp)
+    return CovidState(S, I, R, T, params, CovidAction(0.0))
+end
+
+function rand_initialstate(pomdp::CovidPOMDP, Idist::Distribution)
+    inf = clamp(floor(Int, rand(Idist)), 0, pomdp.N)
+    S, I, R, T = init_SIRT(pomdp, inf)
     params = initParams(pomdp)
     return CovidState(S, I, R, T, params, CovidAction(0.0))
 end
