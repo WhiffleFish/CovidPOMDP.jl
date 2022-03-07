@@ -7,11 +7,12 @@ Fit Distributions to MC sim data for secondary infections per index case as a fu
 - `sample_size::Int=50` - Sample size for `infections_path` csv where row entry is average infections for given sample size.
 """
 function FitInfectionDistributions(df::DataFrame, horizon::Int=14, sample_size::Int=50)
+    Λ = 1_000 # variance scaling parameter
     distributions = Vector{Gamma{Float64}}(undef, horizon)
     for day in 1:horizon
         try
             shape, scale = Distributions.params(fit(Gamma, df[!,day]))
-            distributions[day] = Gamma(shape/sample_size, 5*scale*sample_size)
+            distributions[day] = Gamma(shape/(sample_size*Λ), 5Λ*scale*sample_size)
         catch e
             if e isa DomainError
                 distributions[day] = Gamma(1e-100,1e-100)
