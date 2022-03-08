@@ -32,7 +32,8 @@ function POMDPs.simulate(
     planner::Policy;
     s = rand(b),
     T::Int=50,
-    n_p::Int = 100,
+    upd = BootstrapFilter,
+    n_p::Int = 10_000,
     progress::Bool=false)
 
     susHist = zeros(Int,T)
@@ -44,7 +45,7 @@ function POMDPs.simulate(
     beliefHist = Vector{ParticleCollection{CovidState}}(undef, T)
 
     single_step_pomdp = unity_test_period(pomdp)
-    upd = BootstrapFilter(single_step_pomdp, n_p)
+    upd = upd(single_step_pomdp, n_p)
 
     prog = Progress(T; enabled=progress)
     for day in 1:T

@@ -162,8 +162,10 @@ function initParams(pomdp::CovidPOMDP, asymptomatic_prob=0.10)
     pos_test_probs = copy(POS_TEST_PROBS)
     for (i,d) in enumerate(INF_DIST)
         k,θ = Distributions.params(d)
-        k′ = k*rand()*2
-        θ′ = θ*rand()*2
+        # k′ = k*rand()*2
+        # θ′ = θ*rand()*2
+        k′ = k*(rand() + 0.5)
+        θ′ = θ*(rand() + 0.5)
         infection_distributions[i] = Gamma(k′,θ′)
 
         λ = (k′*θ′) / (k*θ)
