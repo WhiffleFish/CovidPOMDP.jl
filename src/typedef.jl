@@ -159,15 +159,21 @@ end
 
 function initParams(pomdp::CovidPOMDP, asymptomatic_prob=0.10)
     infection_distributions = similar(INF_DIST)
+    pos_test_probs = copy(POS_TEST_PROBS)
     for (i,d) in enumerate(INF_DIST)
         k,θ = Distributions.params(d)
-        k′ = k*rand()*2
-        θ′ = θ*rand()*2
+        # k′ = k*rand()*2
+        # θ′ = θ*rand()*2
+        k′ = k*(rand() + 0.5)
+        θ′ = θ*(rand() + 0.5)
         infection_distributions[i] = Gamma(k′,θ′)
+
+        λ = (k′*θ′) / (k*θ)
+        pos_test_probs[i] *= λ
     end
 
     return InfParams(
-        POS_TEST_PROBS,
+        min.(pos_test_probs, 1.0),
         cdf_step(SYMPTOM_DIST, INFECTION_HORIZON),
         asymptomatic_prob,
         SYMPTOMATIC_ISOLATION_PROB,

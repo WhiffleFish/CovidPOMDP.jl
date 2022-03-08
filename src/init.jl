@@ -11,8 +11,8 @@ function FitInfectionDistributions(df::DataFrame, horizon::Int=14, sample_size::
     distributions = Vector{Gamma{Float64}}(undef, horizon)
     for day in 1:horizon
         try
-            shape, scale = Distributions.params(fit(Gamma, df[!,day]))
-            distributions[day] = Gamma(shape/(sample_size*Λ), 5Λ*scale*sample_size)
+            k, θ = Distributions.params(fit(Gamma, df[!,day]))
+            distributions[day] = Gamma(k/(sample_size*Λ), Λ*θ*sample_size)
         catch e
             if e isa DomainError
                 distributions[day] = Gamma(1e-100,1e-100)
