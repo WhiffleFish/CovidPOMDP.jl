@@ -29,6 +29,8 @@ include("proportional_control.jl")
 
 include("updater.jl")
 
+include("covid_filter.jl")
+
 include("plots.jl")
 
 end

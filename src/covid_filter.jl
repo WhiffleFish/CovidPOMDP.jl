@@ -2,10 +2,12 @@ function add_noise(p::InfParams)
     inf = copy(p.infectiousness)
     p_test = copy(p.pos_test_probs)
 
+    l = 0.10
+
     for (i,d) in enumerate(inf)
         k,θ = Distributions.params(d)
-        k′ = k*(rand()*0.5+0.75)
-        θ′ = θ*(rand()*0.5+0.75)
+        k′ = k*(rand()*l+(1-l/2))
+        θ′ = θ*(rand()*l+(1-l/2))
         inf[i] = Gamma(k′,θ′)
 
         λ = (k′*θ′) / (k*θ)
@@ -51,7 +53,7 @@ function ParticleFilters.predict!(up::NoisyCovidFilter, b, a, o)
 
     for (i,s) in enumerate(particles(b))
         sp, o, r = POMDPs.gen(pomdp, s, a, rng)
-        pm[i] = sp
+        pm[i] = param_noise(sp)
     end
     return up.particles
 end
@@ -85,7 +87,6 @@ function ParticleFilters.resample(up::NoisyCovidFilter, p::Vector{S}, w::Vector{
     c = w[1]
     i = 1
     U = r
-    local last_state::S
     for m in 1:N
         while U > c && i < N
             i += 1
@@ -93,12 +94,7 @@ function ParticleFilters.resample(up::NoisyCovidFilter, p::Vector{S}, w::Vector{
         end
         U += inv(N)
         s = p[i]
-        last_state = s
-        if last_state === s
-            ps[m] = param_noise(s)
-        else
-            ps[m] = s
-        end
+        ps[m] = s
     end
     return ParticleCollection(ps)
 end
