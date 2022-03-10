@@ -1,22 +1,37 @@
-struct ProportionalControlSolver
+struct ProportionalControlSolver <: Solver
     k::Float64
 end
 
-ProportionalControlSolver() = ProportionalControlSolver(0.5)
+ProportionalControlSolver() = ProportionalControlSolver(1.0)
 
-struct ProportionalControlPlanner
+struct ProportionalControlPlanner <: Policy
     k::Float64
+end
+
+function POMDPs.solve(pc::ProportionalControlSolver, pomdp::CovidPOMDP)
+    return ProportionalControlPlanner(pc.k)
 end
 
 function BasicPOMCP.convert_estimator(pc::ProportionalControlSolver, ::Any, pomdp::CovidPOMDP)
-    return ProportionalControlPlanner(pc.k)
+    return solve(pc, pomdp)
 end
 
 function POMDPs.action(pc::ProportionalControlPlanner, s::CovidState)
     I = sum(s.I)
     inf_prop = I / (s.S + I + s.R)
-    return CovidAction(pc.k*inf_prop)
+    return CovidAction(min(pc.k*inf_prop, 1.0))
 end
+
+function POMDPs.action(pc::ProportionalControlPlanner, b::ParticleCollection{CovidState})
+    s̄ = Statistics.mean(b.particles)
+    return POMDPs.action(pc, s̄)
+end
+
+function POMDPs.action(pc::ProportionalControlPlanner, b)
+    b = ParticleCollection([rand(b) for _ in 1:100]) # TODO: change default particle size
+    return POMDPs.action(pc, b)
+end
+
 
 function BasicPOMCP.estimate_value(
     estimator::ProportionalControlPlanner,
