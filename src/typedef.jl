@@ -10,6 +10,7 @@ end
 
 Base.zero(CovidAction) = CovidAction(0.0)
 
+Base.string(a::CovidAction) = string(round(a.testing_prop,sigdigits=2))
 
 struct CovidActionSpace end
 

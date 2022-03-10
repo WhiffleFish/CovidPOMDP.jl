@@ -96,14 +96,7 @@ function update_isolations(params::InfParams, I, R, tests, a::CovidAction)
 
     @assert all(≥(0), I)
 
-    # Progress testing state forward
-    # People k days from receiving test back are now k-1 days from receiving test
-    # Tested individuals with infection age t move to infection age t + 1
-    tests = circshift(tests,(-1,1))
-
-    # Tests and infection ages do not roll back to beginning; clear last row and first column
-    tests[:,1] .= 0
-    tests[end,:] .= 0
+    shift_test!(tests)
 
     return I, R, tests, pos_tests
 end
@@ -119,7 +112,7 @@ function sim_step(pomdp::CovidPOMDP, state::CovidState, a::CovidAction)
 
     # Incident Infections
     R += I[end]
-    I = circshift(I, 1)
+    I = circshift(I, 1) # shift_inf!(I)
     new_infections = incident_infections(params, S, I, R)
     I[1] = new_infections
     S -= new_infections
@@ -242,13 +235,18 @@ end
     I
 end
 
+"""
+Progress testing state forward
+People k days from receiving test back are now k-1 days from receiving test
+Tested individuals with infection age t move to infection age t + 1
+"""
 @inline function shift_test!(T::Matrix)
     s1,s2 = size(T)
     @inbounds for i in 1:(s1-1)
-        @views copyto!(T[i,:],T[i+1,:])
+        @views T[i,:] .= T[i+1,:]
     end
     @inbounds for j in s2:-1:2
-        @views copyto!(T[:,j], T[:,j-1])
+        @views T[:,j] .= T[:,j-1]
     end
     T[:,1] .= 0
     T[end,:] .= 0

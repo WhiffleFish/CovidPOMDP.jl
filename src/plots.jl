@@ -93,6 +93,13 @@ function plot_inf_belief!(ax::Axis, hist::SimHist; particle_samples=0, alpha::Fl
     return ax
 end
 
+function plot_inf_belief(hist::SimHist; figure::NamedTuple=(;), axis::NamedTuple=(;), kwargs...)
+    fig = Figure(; figure...)
+    ax = Axis(fig[1,1]; axis...)
+    plot_inf_belief!(ax, hist; kwargs...)
+    return fig
+end
+
 function _vectorize_inf(ps::Vector{ParticleCollection{CovidState}}, pop::Int)
     T = length(ps)
     Np = n_particles(first(ps))
