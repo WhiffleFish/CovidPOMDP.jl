@@ -1,3 +1,23 @@
+function validate_history(hist::SimHist)
+    S = hist.sus
+    I = hist.inf
+    R = hist.rec
+    N = hist.N
+    T = hist.T
+
+    @test all(≥(0), S)
+    @test all(≥(0), I)
+    @test all(≥(0), R)
+    @test all(≥(0), hist.pos_test)
+
+    # Population size preservation
+    @test all(==(N), S[i] + I[i] + R[i] for i in 1:T)
+
+    @test all( 0.0 .≤ getfield.(hist.actions,:testing_prop) .≤ 1.0)
+
+    return nothing
+end
+
 
 @testset "MDP Simulation" begin
     pomdp = CovidPOMDP()
@@ -7,22 +27,8 @@
     a = rand(actions(pomdp))
 
     hist = simulate(pomdp, s0)
-    S = hist.sus
-    I = hist.inf
-    R = hist.rec
-    N = hist.N
-    T = hist.T
+    validate_history(hist)
 
-    # nonnegativity
-    @test all(≥(0), S)
-    @test all(≥(0), I)
-    @test all(≥(0), R)
-    @test all(≥(0), hist.pos_test)
-
-    # Population size preservation
-    @test all(==(N), S[i] + I[i] + R[i] for i in 1:T)
-
-    # @testinferred CovidPOMDPs.sim_step(pomdp, s0, a)
 end
 
 @testset "POMDP Simulation" begin
@@ -34,20 +40,14 @@ end
     s0 = rand(b0)
     a = rand(actions(pomdp))
 
-    hist = simulate(pomdp, s0)
-    S = hist.sus
-    I = hist.inf
-    R = hist.rec
-    N = hist.N
-    T = hist.T
-
-    # nonnegativity
-    @test all(≥(0), S)
-    @test all(≥(0), I)
-    @test all(≥(0), R)
-    @test all(≥(0), hist.pos_test)
-    @test all( 0.0 .≤ getfield.(hist.actions,:testing_prop) .≤ 1.0)
-
-    # Population size preservation
-    @test all(==(N), S[i] + I[i] + R[i] for i in 1:T)
+    hist = simulate(
+        pomdp,
+        b0,
+        planner;
+        T = 50,
+        upd = BootstrapFilter,
+        n_p = 1_000,
+        progress=true
+    )
+    validate_history(hist)
 end
