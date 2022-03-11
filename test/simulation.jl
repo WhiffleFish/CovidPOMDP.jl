@@ -18,6 +18,22 @@ function validate_history(hist::SimHist)
     return nothing
 end
 
+@testset "Initialization" begin
+    dists = CovidPOMDPs.FitInfectionDistributions(
+        CovidPOMDPs.INF_DATAFRAME,
+        CovidPOMDPs.INFECTION_HORIZON,
+        50
+    )
+    @test @isinferred first(dists)
+
+    test_probs = [
+        CovidPOMDPs.prop_above_LOD(CovidPOMDPs.VIRAL_LOADS, day, CovidPOMDPs.LIMIT_OF_DETECTION)
+        for day in 1:CovidPOMDPs.INFECTION_HORIZON
+    ]
+
+    @test @isinferred first(test_probs)
+    @test all(≥(0.), test_probs)
+end
 
 @testset "MDP Simulation" begin
     pomdp = CovidPOMDP()
@@ -28,7 +44,6 @@ end
 
     hist = simulate(pomdp, s0)
     validate_history(hist)
-
 end
 
 @testset "POMDP Simulation" begin

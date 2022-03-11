@@ -5,7 +5,7 @@ using Test
 macro isinferred(ex)
   quote
     try
-      @inferred $ex
+      @inferred $(Expr(ex.head, esc.(ex.args)...))
       true
     catch err
       println(err)

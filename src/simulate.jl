@@ -10,14 +10,6 @@ Base.@kwdef struct SimHist
     beliefs::Vector{ParticleCollection{CovidState}} = ParticleCollection{CovidState}[]
 end
 
-
-"""
-Convert `simHist` struct to 2-dimentional array - Collapse infected array to sum
-"""
-function Base.Array(simHist::SimHist)::Array{Int64,2}
-    hcat(simHist.sus, simHist.inf, simHist.rec) |> transpose |> Array
-end
-
 """
 # Arguments
 - `state::CovidState` - Current Sim State
@@ -181,50 +173,6 @@ function POMDPs.simulate(
         rewardHist,
         ParticleCollection{CovidState}[]
     )
-end
-
-
-function SimulateEnsemble(T::Int64, trajectories::Int64, pomdp::CovidPOMDP, action::CovidAction)
-    [Simulate(T, CovidState(pomdp), pomdp, action) for _ in 1:trajectories]
-end
-
-function SimulateEnsemble(T::Int64, trajectories::Int64, pomdp::CovidPOMDP, actions::Vector{CovidAction})
-    [Simulate(T, CovidState(pomdp), pomdp, actions[i]) for i in 1:trajectories]
-end
-
-function FullArr(state::CovidState, param::CovidPOMDP)::Vector{Float64}
-    vcat(state.S,state.I,state.R)./param.N
-end
-
-function FullArrToSIR(arr::Array{Float64,2})::Matrix{Float64}
-    hcat(
-        view(arr,1,:),
-        reshape(sum(view(arr,2:15,:),dims=1), size(arr,2)),
-        view(arr,16,:)
-    )'
-end
-
-function SimulateFull(T::Int, state::CovidState, pomdp::CovidPOMDP; action::CovidAction=CovidAction(0.0))::Matrix{Float64}
-    StateArr = Array{Float64,2}(undef,16,T)
-    StateArr[:,1] = FullArr(s)
-    for day in 2:T
-        StateArr[:,day] = FullArr(first(sim_step(pomdp, s, action)))
-    end
-    return StateArr
-end
-
-
-"""
-Convert Simulation SimulateEnsemble output to 3D Array
-# Arguments
-- `histvec::Vector{SimHist}` - Vector of SimHist structs
-"""
-function Base.Array(histvec::Vector{SimHist})::Array{Int64,3}
-    arr = zeros(Int64, 3, histvec[1].T, length(histvec))
-    for i in eachindex(histvec)
-        arr[:,:,i] .= Array(histvec[i])
-    end
-    return arr
 end
 
 @inline function shift_inf!(I::Vector)

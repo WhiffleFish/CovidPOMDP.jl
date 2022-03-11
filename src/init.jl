@@ -39,19 +39,6 @@ end
 
 
 """
-Return distribution resulting from sum of i.i.d RV's characterized by Normal distribution
-
-# Arguments
-- `dist::Normal` - Distribution characterizing random variable
-- `N::Int` - Number of i.i.d RV's summed
-"""
-function RVsum(dist::Normal, N::Int)
-    μ, σ = Distributions.params(dist)
-    return Normal(μ*N,σ*N)
-end
-
-
-"""
 Return distribution resulting from sum of i.i.d RV's characterized by Gamma distribution
 
 # Arguments

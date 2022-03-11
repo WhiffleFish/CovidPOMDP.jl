@@ -54,10 +54,6 @@ function mean_params(states::Vector{CovidState})
     )
 end
 
-function initialbelief(pomdp::CovidPOMDP, np::Int)
-    ParticleCollection([rand(initialstate(pomdp)) for _ in 1:np])
-end
-
 function Statistics.mean(states::Vector{CovidState}, N::Int)
     n_states = length(states)
     sumS = 0
@@ -85,4 +81,4 @@ end
 
 Statistics.mean(states::Vector{CovidState}) = Statistics.mean(states, population(first(states)))
 
-Statistics.mean(pc::ParticleCollection{CovidState}, pomdp::CovidPOMDP) = Statistics.mean(pc.particles, pomdp.N)
+Statistics.mean(pc::ParticleCollection{CovidState}) = Statistics.mean(pc.particles)

@@ -107,13 +107,6 @@ function population(s::CovidState)
     return s.S + sum(s.I) + s.R
 end
 
-"""
-Convert `CovidState` struct to Vector - Collapse infected array to sum
-"""
-function Base.Array(state::CovidState)::Vector{Int64}
-    [state.S, sum(state.I), state.R]
-end
-
 function simplex_sample(N::Int, m::Float64, rng::AbstractRNG=Random.GLOBAL_RNG)
     v = rand(rng, N-1)*m
     push!(v, 0, m)
