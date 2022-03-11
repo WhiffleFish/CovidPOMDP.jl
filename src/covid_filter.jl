@@ -1,8 +1,6 @@
-function add_noise(p::InfParams)
+function add_noise(p::InfParams, l = 0.10)
     inf = copy(p.infectiousness)
     p_test = copy(p.pos_test_probs)
-
-    l = 0.10
 
     for (i,d) in enumerate(inf)
         k,θ = Distributions.params(d)
@@ -24,15 +22,16 @@ function add_noise(p::InfParams)
     )
 end
 
-function param_noise(s::CovidState)
-    return CovidState(s.S, s.I, s.R, s.Tests, add_noise(s.params), s.prev_action)
+function param_noise(s::CovidState, l)
+    return CovidState(s.S, s.I, s.R, s.Tests, add_noise(s.params, l), s.prev_action)
 end
 
-struct NoisyCovidFilter{PM, P, PMEM, RNG<:AbstractRNG} <: Updater
+mutable struct NoisyCovidFilter{PM, P, PMEM, RNG<:AbstractRNG} <: Updater
     predict_model::PM
     particles::P
     weights::Vector{Float64}
     _particle_mem::PMEM
+    _unique::Int
     rng::RNG
 end
 
@@ -42,8 +41,13 @@ function NoisyCovidFilter(pomdp::POMDP{S,A,O}, n::Int) where {S,A,O}
         ParticleCollection(Vector{S}(undef,n)),
         Vector{Float64}(undef, n),
         ParticleCollection(Vector{S}(undef,n)),
+        n,
         Random.GLOBAL_RNG
     )
+end
+
+function noise_width(N::Int, Un::Int)
+    return ((0.05 - 0.25)/(N-1))*(Un-N) + 0.05
 end
 
 function ParticleFilters.predict!(up::NoisyCovidFilter, b, a, o)
@@ -51,9 +55,13 @@ function ParticleFilters.predict!(up::NoisyCovidFilter, b, a, o)
     pm = up.particles.particles
     rng = up.rng
 
+    N = length(pm)
+    un = up._unique
+    noise_param = noise_width(N, un)
+
     for (i,s) in enumerate(particles(b))
         sp, o, r = POMDPs.gen(pomdp, s, a, rng)
-        pm[i] = param_noise(sp)
+        pm[i] = param_noise(sp, noise_param)
     end
     return up.particles
 end
@@ -96,6 +104,7 @@ function ParticleFilters.resample(up::NoisyCovidFilter, p::Vector{S}, w::Vector{
         s = p[i]
         ps[m] = s
     end
+    up._unique = length(unique(ps))
     return ParticleCollection(ps)
 end
 

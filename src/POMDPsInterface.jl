@@ -8,8 +8,16 @@ function POMDPs.gen(pomdp::CovidPOMDP, s::CovidState, a::CovidAction, rng::Abstr
     return (sp=s, o=o, r=rsum)
 end
 
+#=
+TODO: Find type stable way to do this with Normal() ?
+Currently, zero testing prop results in obersvation distribution of Normal(0,0),
+resulting in NaNs for weights when normalizing.
+=#
+struct UninformedDist end
+Distributions.pdf(::UninformedDist, ::Any) = 1.0
+
 function POMDPs.observation(pomdp::CovidPOMDP, s::CovidState, a::CovidAction, sp::CovidState)
-    iszero(a.testing_prop) && return Normal(1.0,0.0) # not getting any info any transition equally likely
+    iszero(a.testing_prop) && return UninformedDist() # not getting any info; any transition equally likely
     tot_mean = 0.0
     tot_variance = 0.0
     p = s.params
