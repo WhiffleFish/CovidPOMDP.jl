@@ -38,6 +38,19 @@ end
 @testset "MDP Simulation" begin
     pomdp = CovidPOMDP()
 
+    T = rand(Int, 4, 3)
+    T′ = circshift(T, (-1,1))
+    T′[:,1] .= 0
+    T′[end,:] .= 0
+    CovidPOMDPs.shift_test!(T)
+    @test all(T .== T′)
+
+    I = rand(Int, 14)
+    I′ = circshift(I, 1)
+    I′[1] = 0
+    CovidPOMDPs.shift_inf!(I)
+    @test all(I .== I′)
+
     b0 = initialstate(pomdp)
     s0 = rand(b0)
     a = rand(actions(pomdp))
@@ -47,12 +60,21 @@ end
 end
 
 @testset "POMDP Simulation" begin
-    pomdp = CovidPOMDP()
+    testing_props = [0,0.5,1.0]
+    pomdp = CovidPOMDP(actions = CovidPOMDPs.CovidActionSpace(testing_props))
+    A = actions(pomdp)
+    @assert length(A) == length(testing_props)
+    @assert all(isa.(A, CovidAction))
+
     sol = CovidPOMDPs.ProportionalControlSolver()
     planner = solve(sol, pomdp)
 
     b0 = initialstate(pomdp, Distributions.Uniform(1,10_000))
     s0 = rand(b0)
+    sir = CovidPOMDPs.SIR(s0)
+    @test all(≥(0), sir)
+    @test sum(sir) == pomdp.N
+
     a = rand(actions(pomdp))
 
     hist = simulate(
@@ -62,7 +84,7 @@ end
         T = 50,
         upd = BootstrapFilter,
         n_p = 1_000,
-        progress=true
+        progress = true
     )
     validate_history(hist)
 end
