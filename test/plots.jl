@@ -1,5 +1,5 @@
 @testset "Plots" begin
-    pomdp = CovidPOMDP()
+    pomdp = SingleCovidPOMDP()
     sol = CovidPOMDPs.ProportionalControlSolver()
     planner = solve(sol, pomdp)
 

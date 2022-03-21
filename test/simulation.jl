@@ -36,7 +36,7 @@ end
 end
 
 @testset "MDP Simulation" begin
-    pomdp = CovidPOMDP()
+    pomdp = SingleCovidPOMDP()
 
     T = rand(Int, 4, 3)
     T′ = circshift(T, (-1,1))
@@ -61,7 +61,7 @@ end
 
 @testset "POMDP Simulation" begin
     testing_props = [0,0.5,1.0]
-    pomdp = CovidPOMDP(actions = CovidPOMDPs.CovidActionSpace(testing_props))
+    pomdp = SingleCovidPOMDP(actions = CovidPOMDPs.CovidActionSpace(testing_props))
     A = actions(pomdp)
     @assert length(A) == length(testing_props)
     @assert all(isa.(A, CovidAction))

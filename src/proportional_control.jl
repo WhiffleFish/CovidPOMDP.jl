@@ -8,21 +8,21 @@ struct ProportionalControlPlanner <: Policy
     k::Float64
 end
 
-function POMDPs.solve(pc::ProportionalControlSolver, pomdp::CovidPOMDP)
+function POMDPs.solve(pc::ProportionalControlSolver, pomdp)
     return ProportionalControlPlanner(pc.k)
 end
 
-function BasicPOMCP.convert_estimator(pc::ProportionalControlSolver, ::Any, pomdp::CovidPOMDP)
+function BasicPOMCP.convert_estimator(pc::ProportionalControlSolver, ::Any, pomdp)
     return solve(pc, pomdp)
 end
 
 function POMDPs.action(pc::ProportionalControlPlanner, s::CovidState)
-    I = sum(s.I)
+    I = infected(s)
     inf_prop = I / (s.S + I + s.R)
     return CovidAction(min(pc.k*inf_prop, 1.0))
 end
 
-function POMDPs.action(pc::ProportionalControlPlanner, b::ParticleCollection{CovidState})
+function POMDPs.action(pc::ProportionalControlPlanner, b::ParticleCollection{<:CovidState})
     s̄ = Statistics.mean(b.particles)
     return POMDPs.action(pc, s̄)
 end

@@ -18,7 +18,7 @@ include("init.jl")
 include("constants.jl")
 
 include("typedef.jl")
-export CovidPOMDP, CovidState, CovidAction
+export CovidActionSpace, CovidAction
 
 include("simulate.jl")
 export SimHist
@@ -32,5 +32,13 @@ include("updater.jl")
 include("covid_filter.jl")
 
 include("plots.jl")
+
+include(joinpath("single_strain", "SingleStrain.jl"))
+using .SingleStrain
+export SingleCovidPOMDP, SingleCovidState
+
+include(joinpath("double_strain", "DoubleStrain.jl"))
+using .DoubleStrain
+export DoubleCovidPOMDP, DoubleCovidState
 
 end

@@ -22,8 +22,8 @@ function add_noise(p::InfParams, l = 0.10)
     )
 end
 
-function param_noise(s::CovidState, l)
-    return CovidState(s.S, s.I, s.R, s.Tests, add_noise(s.params, l), s.prev_action)
+function param_noise(s::S, l) where S <: CovidState
+    return S(statevars(s)..., add_noise(s.params, l), s.prev_action)
 end
 
 mutable struct NoisyCovidFilter{PM, P, PMEM, RNG<:AbstractRNG} <: Updater
@@ -35,7 +35,7 @@ mutable struct NoisyCovidFilter{PM, P, PMEM, RNG<:AbstractRNG} <: Updater
     rng::RNG
 end
 
-function NoisyCovidFilter(pomdp::POMDP{S,A,O}, n::Int) where {S,A,O}
+function NoisyCovidFilter(pomdp::POMDP{S}, n::Int) where S<:CovidState
     return NoisyCovidFilter(
         pomdp,
         ParticleCollection(Vector{S}(undef,n)),
@@ -108,7 +108,7 @@ function ParticleFilters.resample(up::NoisyCovidFilter, p::Vector{S}, w::Vector{
     return ParticleCollection(ps)
 end
 
-function ParticleFilters.update(up::NoisyCovidFilter, b::ParticleCollection{CovidState}, a::CovidAction, o::Int)
+function ParticleFilters.update(up::NoisyCovidFilter, b::ParticleCollection, a::CovidAction, o::Int)
     b′ = predict!(up, b, a, o)
     w = reweight!(up, b, a, b′, o)
     return resample(up, b′.particles, w)

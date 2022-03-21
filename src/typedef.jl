@@ -1,3 +1,21 @@
+abstract type CovidState end
+
+function statevars end
+
+function infected end
+
+function init_SIRT end
+
+function sim_step end
+
+function unity_test_period end
+
+function population(s::CovidState)
+    return s.S + infected(s) + s.R
+end
+
+SIR(s::CovidState) = (s.S, infected(s), s.R)
+
 """
 Action input to influence epidemic simulation dynamics
 # Arguments
@@ -42,122 +60,16 @@ const DEFAULT_PARAMS = InfParams(
     INF_DIST
 )
 
-"""
-# Arguments
-- `S::Int` - Current Susceptible Population
-- `I::Vector{Int}` - Current Infected Population
-- `R::Int` - Current Recovered Population
-- `Tests::Matrix{Int}` - Array for which people belonging to array element ``T_{i,j}`` are ``i-1`` days away
-    from receiving positive test and have infection age ``j``
-"""
-struct CovidState
-    S::Int # Current Susceptible Population
-    I::Vector{Int} # Current Infected Population
-    R::Int # Current Recovered Population
-    Tests::Matrix{Int} # Rows: Days from receiving test result; Columns: Infection Age
-    params::InfParams
-    prev_action::CovidAction
+
+function cdf_step(d::Distribution, N::Int)
+    return Float64[cdf(d, i) - cdf(d, i-1) for i in 1:N]
 end
 
-SIR(s::CovidState) = (s.S, sum(s.I), s.R)
-
-Base.@kwdef struct CovidPOMDP{A} <: POMDP{CovidState, CovidAction, Int}
-    "Delay (in days) between test being administered and result of test being received `(≥ 0)`"
-    test_delay::Int = 1
-
-    "Total population count `(> 0)`"
-    N::Int = 10^6
-
-    "POMDP discount factor `(γ ∈ [0,1])`"
-    discount::Float64 = 0.95
-
-    "Weight with which to penalize new infections `(≥ 0.0)`"
-    inf_loss::Float64 = 1.0
-
-    "Weight with which to penalize testing rate `(≥ 0.0)`"
-    test_loss::Float64 = 1.0
-
-    "Weight with which to penalize changes in testing rate `(≥ 0.0)`"
-    testrate_loss::Float64 = 1.0
-
-    "Number of days for which a testing policy must be held `(≥ 1)`"
-    test_period::Int = 1
-
-    "CovidPOMDP action space (default is continuous [0,1])"
-    actions::A = CovidActionSpace()
-end
-
-"""
-Take given CovidPOMDP obj and return same CovidPOMDP obj only with test_period changed to 1
-"""
-function unity_test_period(pomdp::CovidPOMDP)::CovidPOMDP
-    return CovidPOMDP(
-        pomdp.test_delay,
-        pomdp.N,
-        pomdp.discount,
-        pomdp.inf_loss,
-        pomdp.test_loss,
-        pomdp.testrate_loss,
-        1,
-        pomdp.actions
-    )
-end
-
-function population(s::CovidState)
-    return s.S + sum(s.I) + s.R
-end
-
-function simplex_sample(N::Int, m::Float64, rng::AbstractRNG=Random.GLOBAL_RNG)
-    v = rand(rng, N-1)*m
-    push!(v, 0, m)
-    sort!(v)
-    return (v - circshift(v,1))[2:end]
-end
-
-
-function init_SIRT(pomdp::CovidPOMDP, rng::AbstractRNG=Random.GLOBAL_RNG)
-    N = pomdp.N
-    S, inf, R = floor.(Int, simplex_sample(3, Float64(N), rng))
-
-    horizon = INFECTION_HORIZON
-
-    I = floor.(Int,simplex_sample(horizon, Float64(inf), rng))
-
-    leftover = N - (S + sum(I) + R)
-    R += leftover
-
-    tests = zeros(Int, pomdp.test_delay+1, horizon)
-
-    return S, I, R, tests
-end
-
-function init_SIRT(pomdp::CovidPOMDP, inf::Int, rng::AbstractRNG=Random.GLOBAL_RNG)
-    N = pomdp.N
-    R = 0
-
-    horizon = INFECTION_HORIZON
-
-    I = floor.(Int, simplex_sample(horizon, Float64(inf), rng))
-
-    leftover = N - sum(I)
-    S = leftover
-
-    tests = zeros(Int, pomdp.test_delay+1, horizon)
-
-    return S, I, R, tests
-end
-
-function CovidState(pomdp::CovidPOMDP, params::InfParams=DEFAULT_PARAMS)
-    return CovidState(init_SIRT(pomdp)..., params, CovidAction(0.0))
-end
-
-function initParams(pomdp::CovidPOMDP, asymptomatic_prob=0.10)
+function init_params(asymptomatic_prob=0.10)
     infection_distributions = similar(INF_DIST)
     pos_test_probs = copy(POS_TEST_PROBS)
     for (i,d) in enumerate(INF_DIST)
         k,θ = Distributions.params(d)
-        # k′ = k*rand()*2
-        # θ′ = θ*rand()*2
         k′ = k*(rand() + 0.5)
         θ′ = θ*(rand() + 0.5)
         infection_distributions[i] = Gamma(k′,θ′)
@@ -175,19 +87,50 @@ function initParams(pomdp::CovidPOMDP, asymptomatic_prob=0.10)
         )
 end
 
-function rand_initialstate(pomdp::CovidPOMDP)
-    S, I, R, T = init_SIRT(pomdp)
-    params = initParams(pomdp)
-    return CovidState(S, I, R, T, params, CovidAction(0.0))
+const AbstractCovidPOMDP = POMDP{<:CovidState, CovidAction, Int}
+
+function simplex_sample(N::Int, m::Float64, rng::AbstractRNG=Random.GLOBAL_RNG)
+    v = rand(rng, N-1)*m
+    push!(v, 0, m)
+    sort!(v)
+    return (v - circshift(v,1))[2:end]
 end
 
-function rand_initialstate(pomdp::CovidPOMDP, Idist::Distribution)
+function CovidState(pomdp::POMDP{S}, params::InfParams=DEFAULT_PARAMS) where S<:CovidState
+    return S(init_SIRT(pomdp)..., params, CovidAction(0.0))
+end
+
+function rand_initialstate(pomdp::POMDP{S}) where S<:CovidState
+    params = init_params()
+    return S(init_SIRT(pomdp)..., params, CovidAction(0.0))
+end
+
+function rand_initialstate(pomdp::POMDP{S}, Idist::Distribution) where S<:CovidState
     inf = clamp(floor(Int, rand(Idist)), 0, pomdp.N)
-    S, I, R, T = init_SIRT(pomdp, inf)
-    params = initParams(pomdp)
-    return CovidState(S, I, R, T, params, CovidAction(0.0))
+    params = init_params()
+    return S(init_SIRT(pomdp, inf)..., params, CovidAction(0.0))
 end
 
-function cdf_step(d::Distribution, N::Int)
-    return Float64[cdf(d, i) - cdf(d, i-1) for i in 1:N]
+function POMDPs.initialstate(pomdp::AbstractCovidPOMDP)
+    return ImplicitDistribution() do rng
+        rand_initialstate(pomdp)
+    end
+end
+
+function POMDPs.initialstate(pomdp::AbstractCovidPOMDP, Idist::Distribution)
+    return ImplicitDistribution() do rng
+        rand_initialstate(pomdp, Idist)
+    end
+end
+
+Base.@kwdef struct SimHist{S<:CovidState}
+    sus::Vector{Int} # Susceptible Population History
+    inf::Vector{Int} # Infected Population History
+    rec::Vector{Int} # Recovered Population History
+    N::Int # Total Population
+    T::Int # Simulation Time
+    pos_test::Vector{Int} = Int[]
+    actions::Vector{CovidAction} = CovidAction[]
+    rewards::Vector{Float64} = Float64[]
+    beliefs::Vector{ParticleCollection{S}} = ParticleCollection{SingleCovidState}[]
 end

@@ -1,5 +1,5 @@
 @testset "POMCPOW" begin
-    pomdp = CovidPOMDP(actions = CovidPOMDPs.CovidActionSpace(7;zero=true))
+    pomdp = SingleCovidPOMDP(actions = CovidPOMDPs.CovidActionSpace(7;zero=true))
     b0 = initialstate(pomdp)
 
     sol = POMCPOWSolver(

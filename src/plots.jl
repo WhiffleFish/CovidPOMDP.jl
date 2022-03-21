@@ -76,18 +76,13 @@ function plot_inf_belief!(ax::Axis, hist::SimHist; particle_samples=0, alpha::Fl
             color=(:red, alpha)
         )
     else
-        ps = getproperty.(hist.beliefs, :particles)
-        Np = length(first(ps))
-        p_inf_props = [sum.(getfield.(v,:I)) ./ pop for v in ps]
-        t_vec = Vector{Int}(undef, Np)
-        for i in 1:T
-            scatter!(
-                ax,
-                fill!(t_vec,i),
-                rand(p_inf_props[i], particle_samples::Int),
-                color = (:red, alpha)
-            )
-        end
+        x,y = _vectorize_inf_sample(hist.beliefs, pop, particle_samples)
+        scatter!(
+            ax,
+            x,
+            y,
+            color=(:red, alpha)
+        )
     end
 
     return ax
@@ -100,7 +95,7 @@ function plot_inf_belief(hist::SimHist; figure::NamedTuple=(;), axis::NamedTuple
     return fig
 end
 
-function _vectorize_inf(ps::Vector{ParticleCollection{CovidState}}, pop::Int)
+function _vectorize_inf(ps::Vector{ParticleCollection{S}}, pop::Int) where S <: CovidState
     T = length(ps)
     Np = n_particles(first(ps))
     x = Vector{Int}(undef, Np*T)
@@ -110,7 +105,21 @@ function _vectorize_inf(ps::Vector{ParticleCollection{CovidState}}, pop::Int)
         p,t = Tuple(ci)
         x[i] = t
         s = ps[t].particles[p]
-        y[i] = sum(s.I) / pop
+        y[i] = infected(s) / pop
+    end
+    return x, y
+end
+
+function _vectorize_inf_sample(ps::Vector{ParticleCollection{S}}, pop::Int, n_samples::Int) where S <: CovidState
+    T = length(ps)
+    x = Vector{Int}(undef, n_samples*T)
+    y = Vector{Float64}(undef, n_samples*T)
+
+    for (i,ci) in enumerate(CartesianIndices((n_samples,T)))
+        p,t = Tuple(ci)
+        x[i] = t
+        s = rand(ps[t].particles)
+        y[i] = infected(s) / pop
     end
     return x, y
 end

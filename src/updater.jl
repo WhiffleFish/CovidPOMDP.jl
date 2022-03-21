@@ -1,20 +1,8 @@
-function POMDPs.initialstate(pomdp::CovidPOMDP)
-    return ImplicitDistribution() do rng
-        rand_initialstate(pomdp)
-    end
-end
-
-function POMDPs.initialstate(pomdp::CovidPOMDP, Idist::Distribution)
-    return ImplicitDistribution() do rng
-        rand_initialstate(pomdp, Idist)
-    end
-end
-
 #=
 NOTE: symptomatic_isolation_prob is not averaged
 - isolation probability assumed to be known
 =#
-function mean_params(states::Vector{CovidState})
+function mean_params(states::Vector{<:CovidState})
     N = length(states)
     s0 = first(states).params
 
@@ -54,31 +42,7 @@ function mean_params(states::Vector{CovidState})
     )
 end
 
-function Statistics.mean(states::Vector{CovidState}, N::Int)
-    n_states = length(states)
-    sumS = 0
-    sumI = zeros(Int,length(first(states).I))
-    sumTests = zeros(Int,size(first(states).Tests))
-    for s in states
-        sumS += s.S
-        sumI .+= s.I
-        sumTests .+= s.Tests
-    end
-    avgS = floor(Int,sumS/n_states)
-    avgI = floor.(Int, sumI./n_states)
-    avgR = N - (avgS + sum(avgI))
-    @assert avgR ≥ 0
-    avgTests = floor.(Int, sumTests./n_states)
-    return CovidState(
-        avgS,
-        avgI,
-        avgR,
-        avgTests,
-        mean_params(states),
-        first(states).prev_action,
-        )
-end
 
-Statistics.mean(states::Vector{CovidState}) = Statistics.mean(states, population(first(states)))
+Statistics.mean(states::Vector{<:CovidState}) = Statistics.mean(states, population(first(states)))
 
-Statistics.mean(pc::ParticleCollection{CovidState}) = Statistics.mean(pc.particles)
+Statistics.mean(pc::ParticleCollection{<:CovidState}) = Statistics.mean(pc.particles)
