@@ -19,6 +19,8 @@ function incident_infections(p1::InfParams, p2::InfParams, S::Int, I1::Vector{In
         infSum2 += rand(RVsum(d′, inf))
     end
 
+    infSum1 = floor(Int, infSum1)
+    infSum2 = floor(Int, infSum2)
     inf_sum = infSum1 + infSum2
     overage = inf_sum - S
 

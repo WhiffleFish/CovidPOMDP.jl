@@ -1,5 +1,5 @@
 @testset "Plots" begin
-    pomdp = SingleCovidPOMDP()
+    pomdp = DoubleCovidPOMDP()
     sol = CovidPOMDPs.ProportionalControlSolver()
     planner = solve(sol, pomdp)
 
@@ -22,4 +22,5 @@
     @test_throws DomainError plot(h; kind=:wrong);
 
     @test CovidPOMDPs.plot_inf_belief(h) isa Figure;
+    @test CovidPOMDPs.plot_inf_belief(h; particle_samples=100) isa Figure;
 end

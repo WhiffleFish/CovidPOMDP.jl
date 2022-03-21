@@ -15,7 +15,7 @@ function Statistics.mean(states::Vector{DoubleCovidState}, N::Int)
     avgS = floor(Int,sumS/n_states)
     avgI1 = floor.(Int, sumI1./n_states)
     avgI2 = floor.(Int, sumI2./n_states)
-    avgR = N - (avgS + sum(avgI))
+    avgR = N - (avgS + sum(avgI1) + sum(avgI2))
     @assert avgR ≥ 0
     avgT1 = floor.(Int, sumT1./n_states)
     avgT2 = floor.(Int, sumT2./n_states)

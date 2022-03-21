@@ -14,8 +14,34 @@ macro isinferred(ex)
   end
 end
 
-include("simulation.jl")
+function validate_history(hist::SimHist)
+    S = hist.sus
+    I = hist.inf
+    R = hist.rec
+    N = hist.N
+    T = hist.T
 
-include("solution.jl")
+    @test all(≥(0), S)
+    @test all(≥(0), I)
+    @test all(≥(0), R)
+    @test all(≥(0), hist.pos_test)
 
-include("plots.jl")
+    # Population size preservation
+    @test all(==(N), S[i] + I[i] + R[i] for i in 1:T)
+
+    @test all( 0.0 .≤ getfield.(hist.actions,:testing_prop) .≤ 1.0)
+
+    return nothing
+end
+
+@testset "Common" begin
+    include("common.jl")
+end
+
+@testset verbose=true "Single Strain" begin
+    include(joinpath("single_strain", "single_strain.jl"))
+end
+
+@testset verbose=true "Double Strain" begin
+    include(joinpath("double_strain", "double_strain.jl"))
+end
