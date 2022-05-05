@@ -15,9 +15,9 @@ macro isinferred(ex)
 end
 
 function validate_history(hist::SimHist)
-    S = hist.sus
-    I = hist.inf
-    R = hist.rec
+    S = susceptible(hist)
+    I = infected(hist)
+    R = recovered(hist)
     N = hist.N
     T = hist.T
 

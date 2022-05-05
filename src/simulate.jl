@@ -12,17 +12,14 @@ function POMDPs.simulate(
     T::Int = 50
     ) where S <: CovidState
 
-    susHist = zeros(Int,T)
-    infHist = zeros(Int,T)
-    recHist = zeros(Int,T)
+    stateHist = Vector{S}(undef, T)
     testHist = zeros(Int,T)
     actionHist = fill(action, T)
     rewardHist = zeros(Float64, T)
+    testHist = Vector{Int}(undef, T)
 
     for day in 1:T
-        susHist[day] = state.S
-        infHist[day] = infected(state)
-        recHist[day] = state.R
+        stateHist[day] = state
 
         sp, new_infections, pos_tests = sim_step(pomdp, state, action)
         r = reward(pomdp, state, action,sp)
@@ -33,15 +30,13 @@ function POMDPs.simulate(
     end
 
     return SimHist(
-        susHist,
-        infHist,
-        recHist,
+        stateHist,
         pomdp.N,
         T,
         testHist,
         actionHist,
         rewardHist,
-        ParticleCollection{S}[]
+        Matrix{S}(undef,0,0)
     )
 end
 
@@ -55,13 +50,11 @@ function POMDPs.simulate(
     n_p::Int = 10_000,
     progress::Bool=false) where S <: CovidState
 
-    susHist = zeros(Int,T)
-    infHist = zeros(Int,T)
-    recHist = zeros(Int,T)
-    testHist = zeros(Int,T)
-    actionHist = zeros(CovidAction,T)
-    rewardHist = zeros(Float64,T)
-    beliefHist = Vector{ParticleCollection{S}}(undef, T)
+    stateHist = Vector{S}(undef, T)
+    actionHist = zeros(CovidAction, T)
+    rewardHist = zeros(Float64, T)
+    testHist = Vector{Int}(undef, T)
+    beliefHist = Matrix{S}(undef, n_p, T)
 
     single_step_pomdp = unity_test_period(pomdp)
     upd = upd(single_step_pomdp, n_p)
@@ -74,13 +67,11 @@ function POMDPs.simulate(
         else
             a = actionHist[day-1]
         end
-        (day == 1) && (b = initialize_belief(upd, b))
+        isone(day) && (b = initialize_belief(upd, b))
 
-        susHist[day] = s.S
-        infHist[day] = infected(s)
-        recHist[day] = s.R
+        stateHist[day] = s
         actionHist[day] = a
-        beliefHist[day] = b
+        beliefHist[:,day] .= b.particles
 
         s, o, r = POMDPs.gen(single_step_pomdp, s, a)
         b = update(upd, b, a, o)
@@ -90,7 +81,7 @@ function POMDPs.simulate(
 
         next!(prog)
     end
-    return SimHist(susHist, infHist, recHist, pomdp.N, T, testHist, actionHist, rewardHist, beliefHist)
+    return SimHist(stateHist, pomdp.N, T, testHist, actionHist, rewardHist, beliefHist)
 end
 
 @inline function shift_inf!(I::Vector)

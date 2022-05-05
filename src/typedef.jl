@@ -4,6 +4,10 @@ function statevars end
 
 function infected end
 
+function susceptible end
+
+function recovered end
+
 function init_SIRT end
 
 function sim_step end
@@ -123,14 +127,16 @@ function POMDPs.initialstate(pomdp::AbstractCovidPOMDP, Idist::Distribution)
     end
 end
 
-Base.@kwdef struct SimHist{S<:CovidState}
-    sus::Vector{Int} # Susceptible Population History
-    inf::Vector{Int} # Infected Population History
-    rec::Vector{Int} # Recovered Population History
+struct SimHist{S<:CovidState}
+    S::Vector{S}
     N::Int # Total Population
     T::Int # Simulation Time
-    pos_test::Vector{Int} = Int[]
-    actions::Vector{CovidAction} = CovidAction[]
-    rewards::Vector{Float64} = Float64[]
-    beliefs::Vector{ParticleCollection{S}} = ParticleCollection{SingleCovidState}[]
+    pos_test::Vector{Int}
+    actions::Vector{CovidAction}
+    rewards::Vector{Float64}
+    beliefs::Matrix{S}
 end
+
+infected(h::SimHist) = infected.(h.S)
+susceptible(h::SimHist) = susceptible.(h.S)
+recovered(h::SimHist) = recovered.(h.S)

@@ -41,4 +41,6 @@ include(joinpath("double_strain", "DoubleStrain.jl"))
 using .DoubleStrain
 export DoubleCovidPOMDP, DoubleCovidState
 
+export susceptible, infected, recovered
+
 end

@@ -21,7 +21,9 @@ CovidPOMDPs.CovidState(S,I1,I2,R,T1,T2,p,a) = DoubleCovidState(S,I1,I2,R,T1,T2,p
 
 CovidPOMDPs.statevars(s::DoubleCovidState) = (s.S, s.I1, s.I2, s.R, s.T1, s.T2)
 
+CovidPOMDPs.susceptible(s::DoubleCovidState) = s.S
 CovidPOMDPs.infected(s::DoubleCovidState) = sum(s.I1) + sum(s.I2)
+CovidPOMDPs.recovered(s::DoubleCovidState) = s.R
 
 Base.@kwdef struct DoubleCovidPOMDP{A} <: POMDP{DoubleCovidState, CovidPOMDPs.CovidAction, Int}
     "Delay (in days) between test being administered and result of test being received `(≥ 0)`"
