@@ -10,9 +10,9 @@ end
 
 function stackplot(hist::SimHist; kwargs...)
     N = hist.N
-    S = hist.sus ./ N
-    I = hist.inf ./ N
-    R = hist.rec ./ N
+    S = susceptible(hist) ./ N
+    I = infected(hist) ./ N
+    R = recovered(hist) ./ N
     T = hist.T
 
     CS = S .+ I
@@ -43,9 +43,9 @@ end
 
 function lineplot(hist::SimHist; kwargs...)
     N = hist.N
-    S = hist.sus ./ N
-    I = hist.inf ./ N
-    R = hist.rec ./ N
+    S = susceptible(hist) ./ N
+    I = infected(hist) ./ N
+    R = recovered(hist) ./ N
     T = hist.T
 
     fig = Figure()
@@ -66,7 +66,7 @@ end
 function plot_inf_belief!(ax::Axis, hist::SimHist; particle_samples=0, alpha::Float64=0.01)
     pop = hist.N
     T = hist.T
-    lines!(ax, hist.inf ./ pop, linewidth=4)
+    lines!(ax, infected(hist) ./ pop, linewidth=4)
     if particle_samples ≤ 0
         x,y = _vectorize_inf(hist.beliefs, pop)
         scatter!(
@@ -95,16 +95,30 @@ function plot_inf_belief(hist::SimHist; figure::NamedTuple=(;), axis::NamedTuple
     return fig
 end
 
-function _vectorize_inf(ps::Vector{ParticleCollection{S}}, pop::Int) where S <: CovidState
-    T = length(ps)
-    Np = n_particles(first(ps))
+function _vectorize_inf(ps::Matrix{S}, pop::Int) where S <: CovidState
+    T = size(ps, 2)
+    Np = size(ps, 1)
     x = Vector{Int}(undef, Np*T)
     y = Vector{Float64}(undef, Np*T)
 
     for (i,ci) in enumerate(CartesianIndices((Np,T)))
         p,t = Tuple(ci)
         x[i] = t
-        s = ps[t].particles[p]
+        s = ps[p,t]
+        y[i] = infected(s) / pop
+    end
+    return x, y
+end
+
+function _vectorize_inf_sample(ps::Matrix{S}, pop::Int, n_samples::Int) where S <: CovidState
+    T = size(ps, 2)
+    x = Vector{Int}(undef, n_samples*T)
+    y = Vector{Float64}(undef, n_samples*T)
+
+    for (i,ci) in enumerate(CartesianIndices((n_samples,T)))
+        p,t = Tuple(ci)
+        x[i] = t
+        s = rand(@view ps[:,t])
         y[i] = infected(s) / pop
     end
     return x, y
@@ -118,7 +132,7 @@ function _vectorize_inf_sample(ps::Vector{ParticleCollection{S}}, pop::Int, n_sa
     for (i,ci) in enumerate(CartesianIndices((n_samples,T)))
         p,t = Tuple(ci)
         x[i] = t
-        s = rand(ps[t].particles)
+        s = rand(@view ps[:,t])
         y[i] = infected(s) / pop
     end
     return x, y

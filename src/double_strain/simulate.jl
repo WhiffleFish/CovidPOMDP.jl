@@ -1,5 +1,5 @@
 function incident_infections(p1::InfParams, p2::InfParams, S::Int, I1::Vector{Int}, I2::Vector{Int}, R::Int)
-    iszero(S) && return 0
+    iszero(S) && return 0,0
     infSum1 = 0
     infSum2 = 0
     N = S + sum(I1) + sum(I2) + R
