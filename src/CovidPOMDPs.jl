@@ -4,7 +4,7 @@ using Reexport
 using Random
 using ProgressMeter
 @reexport using POMDPs
-@reexport using POMDPModelTools
+@reexport using POMDPTools
 @reexport using Distributions
 @reexport using Statistics
 @reexport using ParticleFilters
